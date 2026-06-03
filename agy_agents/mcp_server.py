@@ -5,20 +5,20 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
 
+from dotenv import load_dotenv
 import logfire
 from mcp.server.fastmcp import FastMCP
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # Pydantic Tracing via Logfire (will pick up LOGFIRE_TOKEN from env if set)
+
+
 # Configure Logfire for the EU tenant
 if not os.environ.get("LOGFIRE_BASE_URL"):
     os.environ["LOGFIRE_BASE_URL"] = "https://logfire-api-eu.pydantic.dev/"
-
-if not os.environ.get("LOGFIRE_TOKEN"):
-    os.environ["LOGFIRE_TOKEN"] = (
-        "pylf_v2_eu_3fd048bb-3ff5-4d76-95eb-76d36927c22b_dvn4CFlWjcw11ql5vjYSkmlwDJ4QCj3H9v2rznf6qWjy"
-    )
 
 logfire.configure()
 try:
