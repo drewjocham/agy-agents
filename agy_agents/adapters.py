@@ -24,6 +24,7 @@ class AntigravityAgentAdapter(AgentProviderPort):
         self,
         prompt: str,
         system_instruction: str,
+        agent_name: str = "Unknown",
         conversation_id: Optional[str] = None,
         mcp_servers: Optional[List[McpServerDef]] = None,
     ) -> Tuple[str, str]:
@@ -50,6 +51,7 @@ class AntigravityAgentAdapter(AgentProviderPort):
         with logfire.span("agent.execute", conversation_id=conversation_id):
             async with Agent(config) as agent:
                 response = await agent.chat(prompt)
+                response_text = await response.text()
 
                 # Observability logging transparent to the caller
                 usage = agent.conversation.total_usage
@@ -59,4 +61,44 @@ class AntigravityAgentAdapter(AgentProviderPort):
                     total_tokens=usage.total_token_count,
                 )
 
-                return await response.text(), agent.conversation_id
+                # ── MANDATORY QUALITY GATE FOR CODING TASKS ──
+                # If the persona is a coder, intercept completion and force a review.
+                coding_keywords = ["backend engineer", "frontend", "coder", "developer"]
+                is_coder = any(
+                    kw in system_instruction.lower() for kw in coding_keywords
+                )
+                if is_coder or agent_name.lower() in [
+                    "backendengineeragent",
+                    "frontendagent",
+                    "servicecoderagent",
+                ]:
+                    logfire.info(
+                        "Coding task detected. Triggering mandatory Quality Gates."
+                    )
+                    import asyncio
+                    from agy_agents.mcp_server import delegate_task_to_subagent
+
+                    # Spawn the 3 required checks concurrently
+                    tester_task = delegate_task_to_subagent(
+                        "TestEngAgent",
+                        f"Review this code for testing gaps:\n{response_text}",
+                    )
+                    sec_task = delegate_task_to_subagent(
+                        "SecurityAgent",
+                        f"Review this code for security flaws:\n{response_text}",
+                    )
+                    curator_task = delegate_task_to_subagent(
+                        "LibraryCuratorAgent",
+                        f"Review this code for dependency issues:\n{response_text}",
+                    )
+
+                    reviews = await asyncio.gather(
+                        tester_task, sec_task, curator_task, return_exceptions=True
+                    )
+
+                    response_text += "\n\n=== AUTOMATED QUALITY GATE REVIEWS ===\n"
+                    response_text += f"\n--- Tester Review ---\n{reviews[0]}\n"
+                    response_text += f"\n--- Security Review ---\n{reviews[1]}\n"
+                    response_text += f"\n--- Library Curator Review ---\n{reviews[2]}\n"
+
+                return response_text, agent.conversation_id

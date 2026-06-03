@@ -123,6 +123,51 @@ def query_long_term_memory(keyword: str) -> str:
 
 
 @mcp.tool()
+async def delegate_task_to_subagent(agent_name: str, task: str) -> str:
+    """
+    Delegate a sub-task to a specialized local agent dynamically and wait for its result.
+    This creates an ad-hoc sub-agent worker pool. Available agents include:
+    ArchitectAgent, DatabaseAgent, FrontendAgent, SecurityAgent, etc.
+    """
+    with logfire.span("mcp.delegate_subagent", agent=agent_name, _level="info"):
+        import importlib
+        import inspect
+        import pkgutil
+        import agy_agents
+        from agy_agents.adapters import AntigravityAgentAdapter
+
+        agent_class = None
+        for _, mod_name, _ in pkgutil.iter_modules(agy_agents.__path__):
+            if mod_name in ("ports", "adapters", "hooks", "mcp_server", "factory"):
+                continue
+            try:
+                module = importlib.import_module(f"agy_agents.{mod_name}")
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    if (
+                        name.lower() == agent_name.lower()
+                        or name.lower() == f"{agent_name.lower()}agent"
+                    ):
+                        agent_class = obj
+                        break
+            except Exception:
+                pass
+            if agent_class:
+                break
+
+        if not agent_class:
+            return f"Error: Agent '{agent_name}' not found in registry."
+
+        provider = AntigravityAgentAdapter(save_dir=".agy_memory")
+        instance = agent_class(provider=provider)
+
+        try:
+            response, _ = await instance.run(prompt=task)
+            return response
+        except Exception as e:
+            return f"Subagent execution failed: {str(e)}"
+
+
+@mcp.tool()
 def run_agent_by_name(agent_name: str, task: str, run_on_gks: bool = False) -> str:
     """
     Executes a specialized agent. For lightweight tasks, runs locally.

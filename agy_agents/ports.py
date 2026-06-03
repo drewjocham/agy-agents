@@ -20,6 +20,7 @@ class AgentProviderPort(Protocol):
         self,
         prompt: str,
         system_instruction: str,
+        agent_name: str = "Unknown",
         conversation_id: Optional[str] = None,
         mcp_servers: Optional[List[McpServerDef]] = None,
     ) -> Tuple[str, str]:
