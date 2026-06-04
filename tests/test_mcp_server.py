@@ -38,7 +38,6 @@ async def test_run_agent_by_name_local():
 
 @pytest.mark.asyncio
 async def test_run_agent_by_name_gks_success(mocker):
-    # Mock config existence
     mocker.patch("agy_agents.mcp_server.Path.exists", return_value=True)
 
     mock_run = mocker.patch("subprocess.run")
@@ -47,7 +46,6 @@ async def test_run_agent_by_name_gks_success(mocker):
     result = run_agent_by_name("architect", "design auth", run_on_gks=True)
     assert "success" in result
     assert "auth designed" in result
-    # It should be formatted JSON
     assert result.startswith("{")
 
 

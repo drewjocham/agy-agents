@@ -11,7 +11,6 @@ from agy_agents.ports import AgentProviderPort, McpServerDef
 
 load_dotenv()
 
-# Configure Logfire for the EU tenant if the environment variable isn't already set
 if not os.environ.get("LOGFIRE_BASE_URL"):
     os.environ["LOGFIRE_BASE_URL"] = "https://logfire-api-eu.pydantic.dev/"
 

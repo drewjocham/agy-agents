@@ -23,4 +23,4 @@ lint: install
 fmt: install
 	$(RUFF) format .
 
-checks: fmt lint test
+check: fmt lint test
